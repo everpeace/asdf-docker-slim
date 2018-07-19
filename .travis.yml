@@ -1,0 +1,8 @@
+language: c
+script: asdf plugin-test docker-slim https://github.com/everpeace/asdf-docker-slim.git 'docker-slim --version'
+before_script:
+  - git clone https://github.com/asdf-vm/asdf.git asdf --branch v0.5.0
+  - . asdf/asdf.sh
+os:
+  - linux
+  - osx
