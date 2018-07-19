@@ -30,10 +30,10 @@ install () {
     echo "Extracting version ${version} of docker-slim"
     case "${filename##*.}" in 
     zip)
-      unzip "${TMP_DOWNLOAD_DIR}/${filename}" -d "${TMP_DOWNLOAD_DIR}"
+      unzip -qq "${TMP_DOWNLOAD_DIR}/${filename}" -d "${TMP_DOWNLOAD_DIR}"
       ;;
     gz)
-      tar zxvf "${TMP_DOWNLOAD_DIR}/${filename}" -C "${TMP_DOWNLOAD_DIR}"
+      tar zxf "${TMP_DOWNLOAD_DIR}/${filename}" -C "${TMP_DOWNLOAD_DIR}"
       ;;
     esac
 
