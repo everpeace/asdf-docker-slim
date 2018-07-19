@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+
+set \
+  -o nounset \
+  -o pipefail \
+  -o errexit
+
+readonly VER_REGEX='(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)'
+
+get_git_tags () {
+  local -r repo_url="$1"
+
+  local tag
+  for tag in $(git ls-remote --tags "${repo_url}"); do
+    if [[ ${tag} =~ refs/tags/${VER_REGEX}$ ]]; then
+        version="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}"
+        if curl --output /dev/null --silent --fail --head "$(get_download_url "${version}")"; then
+          echo "${version}"
+        elif curl --output /dev/null --silent --fail --head "$(get_download_url "${version}" ".tar.gz")"; then
+          echo "${version}"
+        fi
+    fi
+  done \
+      | LC_ALL=C sort -t '.' -k 1,1n -k 2,2n \
+      | tr '\n' ' '
+}
+
+get_arch () {
+  local arch=$(uname | tr '[:upper:]' '[:lower:]')
+
+  if [ "${arch}" = "darwin" ]; then
+    arch="mac"
+  fi
+
+  echo "${arch}"
+}
+
+get_filename () {
+  local -r version="$1"
+  local -r ext="$2"
+
+  local -r arch="$(get_arch)"
+  
+  echo "${version}/dist_${arch}${ext}"
+}
+
+get_download_url () {
+  local -r version="$1"
+  local -r ext="${2:-.zip}"
+
+  local -r filename="$(get_filename "${version}" "${ext}")"
+  echo "https://github.com/docker-slim/docker-slim/releases/download/${filename}"
+}
+
+list_all () {
+  echo "$(get_git_tags "https://github.com/docker-slim/docker-slim")" \
+      | tr -s ' '
+}
+
+list_all

@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+
+set \
+  -o nounset \
+  -o pipefail \
+  -o errexit
+
+# required environment variables
+: ${ASDF_INSTALL_TYPE?}
+: ${ASDF_INSTALL_VERSION?}
+: ${ASDF_INSTALL_PATH?}
+
+# make a temporary download directory with a cleanup hook
+readonly TMP_DOWNLOAD_DIR="$(mktemp -d -t "asdf_docker-slim_XXXXXX")"
+trap 'rm -rf "${TMP_DOWNLOAD_DIR?}"' EXIT
+
+install () {
+  local -r install_type="$1"
+  local -r version="$2"
+  local -r install_path="$3"
+
+  local -r bin_install_path="${install_path}/bin"
+
+  local -r download_url="$(get_download_url "${version}")"
+  local -r filename=$(basename "${download_url}")
+  
+  echo "Downloading version ${version} of docker-slim"
+  if curl -sfL -o "${TMP_DOWNLOAD_DIR}/${filename}" "${download_url}"; then
+
+    echo "Extracting version ${version} of docker-slim"
+    case "${filename##*.}" in 
+    zip)
+      unzip "${TMP_DOWNLOAD_DIR}/${filename}" -d "${TMP_DOWNLOAD_DIR}"
+      ;;
+    gz)
+      tar zxvf "${TMP_DOWNLOAD_DIR}/${filename}" -C "${TMP_DOWNLOAD_DIR}"
+      ;;
+    esac
+
+    echo "Cleaning docker-slim previous binaries"
+    rm -rf "${bin_install_path?}"
+
+    echo "Creating docker-slim bin directory"
+    mkdir -p "${bin_install_path}"
+
+    local f
+    for f in "${TMP_DOWNLOAD_DIR}/${filename%%.*}"/*; do
+      if [[ -f "${f}" ]] \
+      && [[ -x "${f}" ]]; then
+        cp "${f}" "${bin_install_path}"
+      fi
+    done
+    echo "Done"
+  else
+    echo "Error: docker-slim version ${version} not found" >&2
+    exit 1
+  fi
+}
+
+get_arch () {
+  local arch=$(uname | tr '[:upper:]' '[:lower:]')
+
+  if [ "${arch}" = "darwin" ]; then
+    arch="mac"
+  fi
+
+  echo "${arch}"
+}
+
+get_filename () {
+  local -r version="$1"
+  local -r ext="${2:-.zip}"
+  local -r arch="$(get_arch)"
+
+  echo "${version}/dist_${arch}${ext}"
+}
+
+get_download_url () {
+  local -r version="$1"
+
+  local -r _exists="curl --output /dev/null --silent --fail --head"
+  local -r zip_archive=$(get_filename "${version}" ".zip")
+  local -r targz_archive=$(get_filename "${version}" ".tar.gz")
+
+  if ${_exists} "https://github.com/docker-slim/docker-slim/releases/download/${zip_archive}"; then
+    echo "https://github.com/docker-slim/docker-slim/releases/download/${zip_archive}"
+  elif ${_exists} "https://github.com/docker-slim/docker-slim/releases/download/${targz_archive}"; then
+    echo "https://github.com/docker-slim/docker-slim/releases/download/${targz_archive}"
+  fi
+}
+
+install "${ASDF_INSTALL_TYPE}" "${ASDF_INSTALL_VERSION}" "${ASDF_INSTALL_PATH}"
