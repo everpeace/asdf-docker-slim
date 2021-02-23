@@ -7,22 +7,14 @@ set \
 
 readonly VER_REGEX='(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)'
 
-get_git_tags () {
-  local -r repo_url="$1"
+function sort_versions() {
+	sed 'h; s/[+-]/./g; s/.p\([[:digit:]]\)/.z\1/; s/$/.z/; G; s/\n/ /' |
+		LC_ALL=C sort -t. -k 1,1 -k 2,2n -k 3,3n -k 4,4n -k 5,5n |
+		awk '{print $2}'
+}
 
-  local tag
-  for tag in $(git ls-remote --tags "${repo_url}"); do
-    if [[ ${tag} =~ refs/tags/${VER_REGEX}$ ]]; then
-        version="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}"
-        if curl --output /dev/null --silent --fail --head "$(get_download_url "${version}")"; then
-          echo "${version}"
-        elif curl --output /dev/null --silent --fail --head "$(get_download_url "${version}" ".tar.gz")"; then
-          echo "${version}"
-        fi
-    fi
-  done \
-      | LC_ALL=C sort -t '.' -k 1,1n -k 2,2n \
-      | tr '\n' ' '
+list_versions() {
+  git ls-remote --tags --refs https://github.com/docker-slim/docker-slim.git | grep -o 'refs/tags/.*' | cut -d/ -f3- | sed 's/^v//'
 }
 
 get_arch () {
@@ -40,7 +32,7 @@ get_filename () {
   local -r ext="$2"
 
   local -r arch="$(get_arch)"
-  
+
   echo "${version}/dist_${arch}${ext}"
 }
 
@@ -53,8 +45,8 @@ get_download_url () {
 }
 
 list_all () {
-  echo "$(get_git_tags "https://github.com/docker-slim/docker-slim")" \
-      | tr -s ' '
+  echo "$(list_versions | sort_versions | tr '\n' ' ')"
 }
 
 list_all
+
